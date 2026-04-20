@@ -1,0 +1,375 @@
+import streamlit as st
+import requests
+import pandas as pd
+import os
+import json
+import urllib.parse
+from pathlib import Path
+
+#  Config
+BASE_URL = os.getenv("BACKEND_URL", "http://localhost:8000")        
+REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8501") 
+CREDENTIALS_FILE = Path(__file__).parent / "google_credentials.json"
+
+#  set insecure transport on localhost
+if "localhost" in REDIRECT_URI:
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
+st.set_page_config(
+    page_title="Patient Management System",
+    page_icon="🏥",
+    layout="wide"
+)
+
+#  Load credentials 
+with open(CREDENTIALS_FILE) as f:
+    CREDS = json.load(f)["web"]
+
+CLIENT_ID = CREDS["client_id"]
+CLIENT_SECRET = CREDS["client_secret"]
+TOKEN_URI = CREDS["token_uri"]
+AUTH_URI = CREDS["auth_uri"]
+
+SCOPES = [
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+]
+
+#  Auth helpers 
+def init_session():
+    st.session_state.setdefault("authenticated", False)
+    st.session_state.setdefault("user", None)
+    st.session_state.setdefault("current_page", "View All Patients")
+
+def is_authenticated():
+    return st.session_state.get("authenticated", False)
+
+def current_user():
+    return st.session_state.get("user", {})
+
+def build_auth_url():
+    params = {
+        "client_id": CLIENT_ID,
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "scope": " ".join(SCOPES),
+        "access_type": "offline",
+        "prompt": "select_account",
+    }
+    return f"{AUTH_URI}?{urllib.parse.urlencode(params)}"
+
+def exchange_code_for_token(code):
+    response = requests.post(
+        TOKEN_URI,
+        data={
+            "code": code,
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "redirect_uri": REDIRECT_URI,
+            "grant_type": "authorization_code",
+        },
+        timeout=10
+    )
+    data = response.json()
+    if "error" in data:
+        raise Exception(f"{data['error']}: {data.get('error_description', '')}")
+    return data["access_token"]
+
+def get_user_info(access_token):
+    resp = requests.get(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=10
+    )
+    return resp.json()
+
+# Bootstrap 
+init_session()
+
+params = st.query_params
+if "code" in params and not is_authenticated():
+    with st.spinner("Signing you in..."):
+        try:
+            access_token = exchange_code_for_token(params["code"])
+            user_info = get_user_info(access_token)
+            st.session_state["authenticated"] = True
+            st.session_state["user"] = user_info
+            st.query_params.clear()
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ Login failed: {str(e)}")
+            st.stop()
+
+#  Login wall 
+if not is_authenticated():
+    st.markdown("""
+        <div style='text-align:center; padding:80px 0 20px'>
+            <h1>🏥 Patient Management System</h1>
+            <p style='color:grey;font-size:1.1rem'>Please sign in to continue</p>
+        </div>""", unsafe_allow_html=True)
+
+    auth_url = build_auth_url()
+    col1, col2, col3 = st.columns([2,1,2])
+    with col2:
+        st.markdown(f"""
+            <a href="{auth_url}" target="_self" style="text-decoration:none;">
+                <div style="display:flex;align-items:center;justify-content:center;
+                    gap:12px;background:#4285F4;color:white;padding:12px 24px;
+                    border-radius:8px;font-size:1rem;font-weight:500;cursor:pointer;
+                    box-shadow:0 2px 6px rgba(0,0,0,0.3);">
+                    <div style="background:white;border-radius:4px;width:36px;height:36px;
+                        display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <svg width="20" height="20" viewBox="0 0 48 48">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                        </svg>
+                    </div>
+                    <span>Sign in with Google</span>
+                </div>
+            </a>""", unsafe_allow_html=True)
+    st.stop()
+
+#  Sidebar 
+user = current_user()
+st.sidebar.title("🏥 Patient Manager")
+st.sidebar.markdown("---")
+if user.get("picture"):
+    st.sidebar.image(user["picture"], width=60)
+st.sidebar.markdown(f"**{user.get('name', 'User')}**")
+st.sidebar.caption(user.get("email", ""))
+st.sidebar.markdown("---")
+
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    if st.button("🏠 Home", use_container_width=True):
+        st.session_state["current_page"] = "View All Patients"
+        st.rerun()
+with col2:
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state["authenticated"] = False
+        st.session_state["user"] = None
+        st.session_state["current_page"] = "View All Patients"
+        st.rerun()
+
+st.sidebar.markdown("---")
+
+pages = ["View All Patients", "View Patient by ID", "Sort Patients",
+         "Add Patient", "Update Patient", "Delete Patient"]
+current_index = pages.index(st.session_state["current_page"])
+
+page = st.sidebar.radio("Navigate", pages, index=current_index)
+
+if page != st.session_state["current_page"]:
+    st.session_state["current_page"] = page
+
+st.sidebar.markdown("---")
+st.sidebar.caption(f"Backend: {BASE_URL}")
+
+
+# Helpers 
+def fix_verdict(verdict: str, bmi: float) -> str:
+    if 25 <= bmi < 30:
+        return "Overweight"
+    return verdict
+
+VERDICT_BADGE = {
+    "Underweight": "🟡 Underweight",
+    "Normal":      "🟢 Normal",
+    "Overweight":  "🟠 Overweight",
+    "Obese":       "🔴 Obese",
+}
+
+VERDICT_COLORS = {
+    "Underweight": "background-color: #3d3200; color: #ffd700",
+    "Normal":      "background-color: #003d00; color: #00e676",
+    "Overweight":  "background-color: #3d1f00; color: #ff9100",
+    "Obese":       "background-color: #3d0000; color: #ff5252",
+}
+
+def style_verdict(verdict):
+    return VERDICT_BADGE.get(verdict, verdict)
+
+def color_verdict_cell(val):
+    return VERDICT_COLORS.get(val, "")
+
+def patients_to_df(data):
+    rows = []
+    for pid, info in data.items():
+        row = {"ID": pid, **info}
+        row["verdict"] = fix_verdict(row.get("verdict",""), row.get("bmi",0))
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+def list_to_df(data):
+    rows = []
+    for info in data:
+        row = dict(info)
+        row["verdict"] = fix_verdict(row.get("verdict",""), row.get("bmi",0))
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+def render_styled_df(df):
+    try:
+        styled = df.style.map(color_verdict_cell, subset=["verdict"])
+    except AttributeError:
+        styled = df.style.applymap(color_verdict_cell, subset=["verdict"])
+    st.dataframe(styled, use_container_width=True, hide_index=True)
+
+
+
+
+if st.session_state["current_page"] == "View All Patients":
+    st.title("👥 All Patients")
+    st.markdown("Complete list of every patient record in the database.")
+    if st.button("🔄 Refresh"):
+        st.cache_data.clear()
+    try:
+        resp = requests.get(f"{BASE_URL}/view", timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        if data:
+            render_styled_df(patients_to_df(data))
+            st.caption(f"Total records: **{len(data)}**")
+        else:
+            st.warning("No patient records found.")
+    except requests.exceptions.ConnectionError:
+        st.error("❌ Cannot reach the backend.")
+    except Exception as e:
+        st.error(f"❌ {e}")
+
+elif st.session_state["current_page"] == "View Patient by ID":
+    st.title("🔍 View Patient by ID")
+    patient_id = st.text_input("Patient ID", placeholder="e.g. P001").strip()
+    if st.button("Search", type="primary"):
+        if not patient_id:
+            st.warning("Please enter a patient ID.")
+        else:
+            try:
+                resp = requests.get(f"{BASE_URL}/patient/{patient_id}", timeout=5)
+                if resp.status_code == 404:
+                    st.error(f"❌ Patient **{patient_id}** not found.")
+                else:
+                    resp.raise_for_status()
+                    p = resp.json()
+                    verdict = fix_verdict(p.get("verdict",""), p.get("bmi",0))
+                    st.success(f"✅ Record found for **{patient_id}**")
+                    c1, c2, c3 = st.columns(3)
+                    with c1:
+                        st.markdown("### 👤 Personal Info")
+                        st.markdown(f"**Name:** {p.get('name','—')}")
+                        st.markdown(f"**Age:** {p.get('age','—')}")
+                        st.markdown(f"**Gender:** {p.get('gender','—').capitalize()}")
+                        st.markdown(f"**City:** {p.get('city','—')}")
+                    with c2:
+                        st.markdown("### 📏 Measurements")
+                        st.markdown(f"**Height:** {p.get('height','—')} m")
+                        st.markdown(f"**Weight:** {p.get('weight','—')} kg")
+                        st.markdown(f"**BMI:** `{p.get('bmi','—')}`")
+                    with c3:
+                        st.markdown("### 🩺 Verdict")
+                        st.markdown(f"## {style_verdict(verdict)}")
+            except Exception as e:
+                st.error(f"❌ {e}")
+
+elif st.session_state["current_page"] == "Sort Patients":
+    st.title("📊 Sort Patients")
+    c1, c2, c3 = st.columns([2,2,1])
+    with c1: sort_by = st.selectbox("Sort by", ["height","weight","bmi"])
+    with c2: order = st.selectbox("Order", ["asc","desc"])
+    with c3:
+        st.markdown("<br>", unsafe_allow_html=True)
+        go = st.button("Sort", type="primary", use_container_width=True)
+    if go:
+        try:
+            resp = requests.get(f"{BASE_URL}/sort",
+                params={"sort_by":sort_by,"order":order}, timeout=5)
+            resp.raise_for_status()
+            data = resp.json()
+            if data:
+                render_styled_df(list_to_df(data))
+                st.caption(f"{len(data)} records sorted by **{sort_by}** ({order})")
+            else:
+                st.warning("No records found.")
+        except Exception as e:
+            st.error(f"❌ {e}")
+
+elif st.session_state["current_page"] == "Add Patient":
+    st.title("➕ Add New Patient")
+    with st.form("add_form", clear_on_submit=True):
+        c1, c2 = st.columns(2)
+        with c1:
+            pid    = st.text_input("Patient ID *", placeholder="e.g. P010")
+            name   = st.text_input("Full Name *")
+            city   = st.text_input("City *")
+            age    = st.number_input("Age *", min_value=1, max_value=119, value=25)
+        with c2:
+            gender = st.selectbox("Gender *", ["male","female","others"])
+            height = st.number_input("Height (m) *", min_value=0.1, max_value=3.0, value=1.70, format="%.2f")
+            weight = st.number_input("Weight (kg) *", min_value=1.0, max_value=500.0, value=70.0, format="%.1f")
+        sub = st.form_submit_button("➕ Add Patient", type="primary", use_container_width=True)
+    if sub:
+        if not pid.strip() or not name.strip() or not city.strip():
+            st.warning("⚠️ ID, Name and City are required.")
+        else:
+            try:
+                resp = requests.post(f"{BASE_URL}/create", json={
+                    "id":pid.strip(),"name":name.strip(),"city":city.strip(),
+                    "age":int(age),"gender":gender,"height":float(height),"weight":float(weight)
+                }, timeout=5)
+                if resp.status_code == 201: st.success(f"✅ Patient **{pid}** added!")
+                elif resp.status_code == 400: st.error(f"❌ {resp.json().get('detail')}")
+                else: resp.raise_for_status()
+            except Exception as e:
+                st.error(f"❌ {e}")
+
+elif st.session_state["current_page"] == "Update Patient":
+    st.title("✏️ Update Patient")
+    patient_id = st.text_input("Patient ID to update", placeholder="e.g. P001").strip()
+    with st.form("update_form"):
+        c1, c2 = st.columns(2)
+        with c1:
+            name   = st.text_input("New Name", placeholder="Leave blank to keep")
+            city   = st.text_input("New City", placeholder="Leave blank to keep")
+            age    = st.number_input("New Age (0=no change)", min_value=0, max_value=119, value=0)
+        with c2:
+            gender = st.selectbox("New Gender", ["— no change —","male","female","others"])
+            height = st.number_input("New Height m (0=no change)", min_value=0.0, max_value=3.0, value=0.0, format="%.2f")
+            weight = st.number_input("New Weight kg (0=no change)", min_value=0.0, max_value=500.0, value=0.0, format="%.1f")
+        sub = st.form_submit_button("💾 Update", type="primary", use_container_width=True)
+    if sub:
+        if not patient_id:
+            st.warning("⚠️ Enter a patient ID.")
+        else:
+            payload = {}
+            if name.strip(): payload["name"] = name.strip()
+            if city.strip(): payload["city"] = city.strip()
+            if age > 0: payload["age"] = int(age)
+            if gender != "— no change —": payload["gender"] = gender
+            if height > 0: payload["height"] = float(height)
+            if weight > 0: payload["weight"] = float(weight)
+            if not payload:
+                st.warning("⚠️ Fill at least one field.")
+            else:
+                try:
+                    resp = requests.put(f"{BASE_URL}/edit/{patient_id}", json=payload, timeout=5)
+                    if resp.status_code == 200: st.success(f"✅ Patient **{patient_id}** updated!")
+                    elif resp.status_code == 404: st.error(f"❌ Patient not found.")
+                    else: resp.raise_for_status()
+                except Exception as e:
+                    st.error(f"❌ {e}")
+
+elif st.session_state["current_page"] == "Delete Patient":
+    st.title("🗑️ Delete Patient")
+    patient_id = st.text_input("Patient ID to delete", placeholder="e.g. P001").strip()
+    confirm = st.checkbox(f"Yes, permanently delete **{patient_id or '???'}**", disabled=not patient_id)
+    if st.button("🗑️ Delete", type="primary", disabled=not confirm):
+        try:
+            resp = requests.delete(f"{BASE_URL}/delete/{patient_id}", timeout=5)
+            if resp.status_code == 200: st.success(f"✅ Patient **{patient_id}** deleted.")
+            elif resp.status_code == 404: st.error("❌ Patient not found.")
+            else: resp.raise_for_status()
+        except Exception as e:
+            st.error(f"❌ {e}")

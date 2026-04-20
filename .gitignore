@@ -1,0 +1,10 @@
+google_credentials.json
+__pycache__/
+*.pyc
+*.pyo
+myenv/
+.streamlit/
+patients.json
+.DS_Store
+Thumbs.db
+*.log
