@@ -99,8 +99,7 @@ def get_user_info(access_token):
 init_session()
 
 params = st.query_params
-if st.experimental_get_query_params():
-    params = st.query_params
+
 if "code" in params and not is_authenticated():
     with st.spinner("Signing you in..."):
         try:
