@@ -22,13 +22,16 @@ st.set_page_config(
 )
 
 #  Load credentials 
-if os.getenv("GOOGLE_CLIENT_ID"):
+if "GOOGLE_CLIENT_ID" in st.secrets:
     # Running on Streamlit Cloud
-    CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-    CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+    CLIENT_ID = st.secrets["GOOGLE_CLIENT_ID"]
+    CLIENT_SECRET = st.secrets["GOOGLE_CLIENT_SECRET"]
+    BASE_URL = st.secrets.get("BACKEND_URL", BASE_URL)
+    REDIRECT_URI = st.secrets.get("REDIRECT_URI", REDIRECT_URI)
     TOKEN_URI = "https://oauth2.googleapis.com/token"
     AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
 else:
+    # Running locally
     with open(CREDENTIALS_FILE) as f:
         CREDS = json.load(f)["web"]
     CLIENT_ID = CREDS["client_id"]
