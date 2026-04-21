@@ -66,7 +66,8 @@ def build_auth_url():
         "access_type": "offline",
         "prompt": "select_account",
     }
-    return f"{AUTH_URI}?{urllib.parse.urlencode(params)}"
+    url = f"{AUTH_URI}?{urllib.parse.urlencode(params)}"
+    return url
 
 def exchange_code_for_token(code):
     response = requests.post(
@@ -119,6 +120,7 @@ if not is_authenticated():
         </div>""", unsafe_allow_html=True)
 
     auth_url = build_auth_url()
+    st.code(auth_url)
     col1, col2, col3 = st.columns([2,1,2])
     with col2:
         st.markdown(f"""
