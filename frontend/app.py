@@ -29,7 +29,7 @@ try:
     BASE_URL = st.secrets.get("BACKEND_URL", BASE_URL)
     REDIRECT_URI = st.secrets.get("REDIRECT_URI", REDIRECT_URI)
     TOKEN_URI = "https://oauth2.googleapis.com/token"
-    AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
+    AUTH_URI = "https://accounts.google.com/o/oauth2/v2/auth"
 except:
     # Local - use google_credentials.json
     with open(CREDENTIALS_FILE) as f:
