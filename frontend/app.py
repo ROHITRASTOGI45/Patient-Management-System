@@ -119,8 +119,8 @@ if not is_authenticated():
             <h1>🏥 Patient Management System</h1>
             <p style='color:grey;font-size:1.1rem'>Please sign in to continue</p>
         </div>""", unsafe_allow_html=True)
-
     auth_url = build_auth_url()
+    st.write(auth_url)
     col1, col2, col3 = st.columns([2,1,2])
     with col2:
         st.markdown(f"""
