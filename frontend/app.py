@@ -22,13 +22,19 @@ st.set_page_config(
 )
 
 #  Load credentials 
-with open(CREDENTIALS_FILE) as f:
-    CREDS = json.load(f)["web"]
-
-CLIENT_ID = CREDS["client_id"]
-CLIENT_SECRET = CREDS["client_secret"]
-TOKEN_URI = CREDS["token_uri"]
-AUTH_URI = CREDS["auth_uri"]
+if os.getenv("GOOGLE_CLIENT_ID"):
+    # Running on Streamlit Cloud
+    CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+    CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+    TOKEN_URI = "https://oauth2.googleapis.com/token"
+    AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
+else:
+    with open(CREDENTIALS_FILE) as f:
+        CREDS = json.load(f)["web"]
+    CLIENT_ID = CREDS["client_id"]
+    CLIENT_SECRET = CREDS["client_secret"]
+    TOKEN_URI = CREDS["token_uri"]
+    AUTH_URI = CREDS["auth_uri"]
 
 SCOPES = [
     "openid",
