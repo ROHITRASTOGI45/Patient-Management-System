@@ -47,10 +47,9 @@ class PatientUpdate(BaseModel):
     weight: Annotated[Optional[float], Field(default=None, gt=0)]
 
 
-
-
 def load_data():
     if not os.path.exists('patients.json'):
+        save_data({})
         return {}
     with open('patients.json', 'r') as f:
         data = json.load(f)
