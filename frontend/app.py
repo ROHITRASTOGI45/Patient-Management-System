@@ -65,6 +65,7 @@ def build_auth_url():
         "scope": " ".join(SCOPES),
         "access_type": "offline",
         "prompt": "select_account",
+        "include_granted_scopes": "true",
     }
     url = f"{AUTH_URI}?{urllib.parse.urlencode(params)}"
     return url
