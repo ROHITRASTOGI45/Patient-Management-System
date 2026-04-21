@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, computed_field
 from typing import Annotated, Literal, Optional
 import json
 from keep_alive import start
+import os
 start()
 
 app = FastAPI()
@@ -46,10 +47,13 @@ class PatientUpdate(BaseModel):
     weight: Annotated[Optional[float], Field(default=None, gt=0)]
 
 
+
+
 def load_data():
+    if not os.path.exists('patients.json'):
+        return {}
     with open('patients.json', 'r') as f:
         data = json.load(f)
-
     return data
 
 def save_data(data):
