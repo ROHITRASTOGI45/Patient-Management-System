@@ -124,7 +124,7 @@ if "code" in params and "state" in params and not is_authenticated():
             st.error(f"❌ Login failed: {str(e)}")
             st.stop()
 
-#  Login wall 
+# Login wall
 if not is_authenticated():
     st.markdown("""
         <div style='text-align:center; padding:80px 0 20px'>
@@ -136,10 +136,14 @@ if not is_authenticated():
 
     with col2:
         if st.button("🔐 Sign in with Google", use_container_width=True):
-            auth_url = build_auth_url()   # ✅ MOVED INSIDE BUTTON
+            auth_url = build_auth_url()   # ✅ properly inside if
 
             st.markdown(
-                f'<meta http-equiv="refresh" content="0; url={auth_url}">',
+                f"""
+                <script>
+                window.location.href = "{auth_url}";
+                </script>
+                """,
                 unsafe_allow_html=True
             )
 
