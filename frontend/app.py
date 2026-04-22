@@ -61,8 +61,13 @@ def current_user():
 import secrets
 
 def build_auth_url():
-    state = secrets.token_urlsafe(16)
-    st.session_state["oauth_state"] = state
+    import secrets
+
+    # ✅ Only generate if not already present
+    if "oauth_state" not in st.session_state:
+        st.session_state["oauth_state"] = secrets.token_urlsafe(16)
+
+    state = st.session_state["oauth_state"]
 
     params = {
         "client_id": CLIENT_ID,
@@ -72,11 +77,10 @@ def build_auth_url():
         "access_type": "offline",
         "prompt": "select_account",
         "include_granted_scopes": "true",
-        "state": state,   # ✅ IMPORTANT
+        "state": state,
     }
 
-    url = f"{AUTH_URI}?{urllib.parse.urlencode(params)}"
-    return url
+    return f"{AUTH_URI}?{urllib.parse.urlencode(params)}"
 
 def exchange_code_for_token(code):
     response = requests.post(
@@ -109,17 +113,30 @@ init_session()
 params = st.query_params
 
 if "code" in params and "state" in params and not is_authenticated():
-    if params["state"] != st.session_state.get("oauth_state"):
-        st.error("❌ Invalid OAuth state")
+    stored_state = st.session_state.get("oauth_state")
+
+    if not stored_state:
+        st.warning("⚠️ Session expired. Please login again.")
         st.stop()
+
+    if params["state"] != stored_state:
+        st.error("❌ Invalid OAuth state (mismatch)")
+        st.write("Expected:", stored_state)
+        st.write("Received:", params["state"])
+        st.stop()
+
     with st.spinner("Signing you in..."):
         try:
             access_token = exchange_code_for_token(params["code"])
             user_info = get_user_info(access_token)
+
             st.session_state["authenticated"] = True
             st.session_state["user"] = user_info
+
+            # ✅ Clean URL after login
             st.query_params.clear()
             st.rerun()
+
         except Exception as e:
             st.error(f"❌ Login failed: {str(e)}")
             st.stop()
