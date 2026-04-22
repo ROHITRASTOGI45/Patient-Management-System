@@ -24,7 +24,6 @@ st.set_page_config(
 
 #  Load credentials 
 try:
-    # Production - Streamlit Cloud
     CLIENT_ID = st.secrets["GOOGLE_CLIENT_ID"]
     CLIENT_SECRET = st.secrets["GOOGLE_CLIENT_SECRET"]
     BASE_URL = st.secrets.get("BACKEND_URL", BASE_URL)
@@ -63,7 +62,6 @@ import secrets
 def build_auth_url():
     import secrets
 
-    # ✅ Only generate if not already present
     if "oauth_state" not in st.session_state:
         st.session_state["oauth_state"] = secrets.token_urlsafe(16)
 
@@ -107,7 +105,7 @@ def get_user_info(access_token):
     )
     return resp.json()
 
-# ------------------ BOOTSTRAP ------------------
+# Bootstrap 
 init_session()
 
 params = st.query_params
@@ -116,7 +114,6 @@ if "code" in params and "state" in params and not is_authenticated():
     code = params["code"]
     state = params["state"]
 
-    # Handle list case (Streamlit sometimes returns list)
     if isinstance(code, list):
         code = code[0]
     if isinstance(state, list):
@@ -124,11 +121,10 @@ if "code" in params and "state" in params and not is_authenticated():
 
     stored_state = st.session_state.get("oauth_state")
 
-    # ✅ Relaxed state handling (prevents session expired bug)
     if not stored_state:
         stored_state = state
 
-    # Validate state
+  
     if state != stored_state:
         st.error("❌ Invalid OAuth state")
         st.stop()
@@ -152,7 +148,7 @@ if "code" in params and "state" in params and not is_authenticated():
             st.error(f"❌ Login failed: {str(e)}")
             st.stop()
 
-# ------------------ LOGIN WALL ------------------
+# login wall
 if not is_authenticated():
     st.markdown("""
         <div style='text-align:center; padding:80px 0 20px'>
@@ -168,16 +164,13 @@ if not is_authenticated():
     with col2:
         if st.button("🔐 Sign in with Google", use_container_width=True):
             auth_url = build_auth_url()
-
-            # ✅ Direct redirect (same as manual URL — most reliable)
             st.markdown(
                 f"[Click here to continue to Google Login]({auth_url})",
                 unsafe_allow_html=True
             )
-
     st.stop()
 
-#  Sidebar 
+# Sidebar 
 user = current_user()
 st.sidebar.title("🏥 Patient Manager")
 st.sidebar.markdown("---")
