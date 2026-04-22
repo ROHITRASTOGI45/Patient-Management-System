@@ -5,6 +5,7 @@ import os
 import json
 import urllib.parse
 from pathlib import Path
+import secrets
 
 #  Config
 BASE_URL = os.getenv("BACKEND_URL", "http://localhost:8000")        
@@ -57,7 +58,12 @@ def is_authenticated():
 def current_user():
     return st.session_state.get("user", {})
 
+import secrets
+
 def build_auth_url():
+    state = secrets.token_urlsafe(16)
+    st.session_state["oauth_state"] = state
+
     params = {
         "client_id": CLIENT_ID,
         "redirect_uri": REDIRECT_URI,
@@ -66,7 +72,9 @@ def build_auth_url():
         "access_type": "offline",
         "prompt": "select_account",
         "include_granted_scopes": "true",
+        "state": state,   # ✅ IMPORTANT
     }
+
     url = f"{AUTH_URI}?{urllib.parse.urlencode(params)}"
     return url
 
@@ -100,7 +108,10 @@ init_session()
 
 params = st.query_params
 
-if "code" in params and not is_authenticated():
+if "code" in params and "state" in params and not is_authenticated():
+    if params["state"] != st.session_state.get("oauth_state"):
+        st.error("❌ Invalid OAuth state")
+        st.stop()
     with st.spinner("Signing you in..."):
         try:
             access_token = exchange_code_for_token(params["code"])
@@ -120,14 +131,18 @@ if not is_authenticated():
             <h1>🏥 Patient Management System</h1>
             <p style='color:grey;font-size:1.1rem'>Please sign in to continue</p>
         </div>""", unsafe_allow_html=True)
-    auth_url = build_auth_url()
+
     col1, col2, col3 = st.columns([2,1,2])
+
     with col2:
         if st.button("🔐 Sign in with Google", use_container_width=True):
+            auth_url = build_auth_url()   # ✅ MOVED INSIDE BUTTON
+
             st.markdown(
-        f'<meta http-equiv="refresh" content="0; url={auth_url}">',
-        unsafe_allow_html=True
-        )
+                f'<meta http-equiv="refresh" content="0; url={auth_url}">',
+                unsafe_allow_html=True
+            )
+
     st.stop()
 
 #  Sidebar 
