@@ -8,7 +8,7 @@ from pathlib import Path
 
 #  Config
 BASE_URL = os.getenv("BACKEND_URL", "http://localhost:8000")        
-REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8501") 
+REDIRECT_URI = st.secrets["REDIRECT_URI"]
 CREDENTIALS_FILE = Path(__file__).parent / "google_credentials.json"
 
 #  set insecure transport on localhost
@@ -121,7 +121,6 @@ if not is_authenticated():
             <p style='color:grey;font-size:1.1rem'>Please sign in to continue</p>
         </div>""", unsafe_allow_html=True)
     auth_url = build_auth_url()
-    st.write(auth_url)
     col1, col2, col3 = st.columns([2,1,2])
     with col2:
         st.markdown(f"""
