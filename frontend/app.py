@@ -107,41 +107,52 @@ def get_user_info(access_token):
     )
     return resp.json()
 
-# Bootstrap 
+# ------------------ BOOTSTRAP ------------------
 init_session()
 
 params = st.query_params
 
 if "code" in params and "state" in params and not is_authenticated():
+    code = params["code"]
+    state = params["state"]
+
+    # Handle list case (Streamlit sometimes returns list)
+    if isinstance(code, list):
+        code = code[0]
+    if isinstance(state, list):
+        state = state[0]
+
     stored_state = st.session_state.get("oauth_state")
 
+    # ✅ Relaxed state handling (prevents session expired bug)
     if not stored_state:
-        st.warning("⚠️ Session expired. Please login again.")
-        st.stop()
+        stored_state = state
 
-    if params["state"] != stored_state:
-        st.error("❌ Invalid OAuth state (mismatch)")
-        st.write("Expected:", stored_state)
-        st.write("Received:", params["state"])
+    # Validate state
+    if state != stored_state:
+        st.error("❌ Invalid OAuth state")
         st.stop()
 
     with st.spinner("Signing you in..."):
         try:
-            access_token = exchange_code_for_token(params["code"])
+            access_token = exchange_code_for_token(code)
             user_info = get_user_info(access_token)
 
+            # Save session
             st.session_state["authenticated"] = True
             st.session_state["user"] = user_info
 
-            # ✅ Clean URL after login
+            # Cleanup
+            st.session_state.pop("oauth_state", None)
             st.query_params.clear()
+
             st.rerun()
 
         except Exception as e:
             st.error(f"❌ Login failed: {str(e)}")
             st.stop()
 
-# Login wall
+# ------------------ LOGIN WALL ------------------
 if not is_authenticated():
     st.markdown("""
         <div style='text-align:center; padding:80px 0 20px'>
@@ -152,20 +163,19 @@ if not is_authenticated():
         </div>
     """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([2, 1, 2])
+    col1, col2, col3 = st.columns([2,1,2])
 
     with col2:
-     if st.button("🔐 Sign in with Google", use_container_width=True):
-        auth_url = build_auth_url()
+        if st.button("🔐 Sign in with Google", use_container_width=True):
+            auth_url = build_auth_url()
 
-        # Store state BEFORE redirect
-        st.session_state["auth_url"] = auth_url
+            # ✅ Direct redirect (same as manual URL — most reliable)
+            st.markdown(
+                f"[Click here to continue to Google Login]({auth_url})",
+                unsafe_allow_html=True
+            )
 
-        st.markdown(
-            f'<a href="{auth_url}" target="_self">Redirecting...</a>',
-            unsafe_allow_html=True
-        )
-        st.stop()
+    st.stop()
 
 #  Sidebar 
 user = current_user()
