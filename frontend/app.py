@@ -129,23 +129,29 @@ if not is_authenticated():
     st.markdown("""
         <div style='text-align:center; padding:80px 0 20px'>
             <h1>🏥 Patient Management System</h1>
-            <p style='color:grey;font-size:1.1rem'>Please sign in to continue</p>
-        </div>""", unsafe_allow_html=True)
+            <p style='color:grey;font-size:1.1rem'>
+                Please sign in to continue
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([2,1,2])
+    col1, col2, col3 = st.columns([2, 1, 2])
 
     with col2:
         if st.button("🔐 Sign in with Google", use_container_width=True):
-            auth_url = build_auth_url()   # ✅ properly inside if
+            # Generate auth URL ONLY when clicked (important for state)
+            auth_url = build_auth_url()
 
-            st.markdown(
-                f"""
-                <script>
-                window.location.href = "{auth_url}";
-                </script>
-                """,
-                unsafe_allow_html=True
-            )
+            # Save URL in session
+            st.session_state["auth_url"] = auth_url
+
+    # If URL exists → show clickable redirect button
+    if "auth_url" in st.session_state:
+        st.link_button(
+            "👉 Continue to Google Login",
+            st.session_state["auth_url"],
+            use_container_width=True
+        )
 
     st.stop()
 
