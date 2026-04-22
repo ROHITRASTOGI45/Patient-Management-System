@@ -155,22 +155,17 @@ if not is_authenticated():
     col1, col2, col3 = st.columns([2, 1, 2])
 
     with col2:
-        if st.button("🔐 Sign in with Google", use_container_width=True):
-            # Generate auth URL ONLY when clicked (important for state)
-            auth_url = build_auth_url()
+     if st.button("🔐 Sign in with Google", use_container_width=True):
+        auth_url = build_auth_url()
 
-            # Save URL in session
-            st.session_state["auth_url"] = auth_url
+        # Store state BEFORE redirect
+        st.session_state["auth_url"] = auth_url
 
-    # If URL exists → show clickable redirect button
-    if "auth_url" in st.session_state:
-        st.link_button(
-            "👉 Continue to Google Login",
-            st.session_state["auth_url"],
-            use_container_width=True
+        st.markdown(
+            f'<a href="{auth_url}" target="_self">Redirecting...</a>',
+            unsafe_allow_html=True
         )
-
-    st.stop()
+        st.stop()
 
 #  Sidebar 
 user = current_user()
