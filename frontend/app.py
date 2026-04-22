@@ -124,7 +124,7 @@ if not is_authenticated():
     col1, col2, col3 = st.columns([2,1,2])
     with col2:
         st.markdown(f"""
-            <a href="{auth_url}" target="_self" style="text-decoration:none;">
+            <a href="{auth_url}" target="_top" style="text-decoration:none;">
                 <div style="display:flex;align-items:center;justify-content:center;
                     gap:12px;background:#4285F4;color:white;padding:12px 24px;
                     border-radius:8px;font-size:1rem;font-weight:500;cursor:pointer;
