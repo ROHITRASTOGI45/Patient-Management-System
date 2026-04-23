@@ -57,7 +57,6 @@ def is_authenticated():
 def current_user():
     return st.session_state.get("user", {})
 
-import secrets
 
 def build_auth_url():
     import secrets
