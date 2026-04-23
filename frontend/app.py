@@ -59,7 +59,6 @@ def current_user():
 
 
 def build_auth_url():
-    import secrets
 
     if "oauth_state" not in st.session_state:
         st.session_state["oauth_state"] = secrets.token_urlsafe(16)
