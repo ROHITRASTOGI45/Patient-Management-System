@@ -10,7 +10,7 @@ def ping_self():
             requests.get(f"{url}/", timeout=5)
         except:
             pass
-        time.sleep(840)  # ping every 14 minutes
+        time.sleep(840)
  
 def start():
     t = threading.Thread(target=ping_self, daemon=True)
